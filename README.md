@@ -136,6 +136,7 @@ Feel free to submit issues or pull requests to improve the scripts or add new fe
 
 When filing an issue or creating a pull request, please include:
 - A sample `chat.json` file that demonstrates the problem or use case
+  - Redact any secrets or other private information before submitting
 - The expected vs. actual output behavior
 - Steps to reproduce the issue
 
