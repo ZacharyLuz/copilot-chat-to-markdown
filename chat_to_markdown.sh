@@ -59,6 +59,35 @@ format_timestamp() {
     echo "**Participant:** $requester"
     echo "**Assistant:** $responder"
     echo ""
+    
+    # Generate table of contents
+    request_count=$(jq -r '.requests | length' "$INPUT_FILE")
+    if [ "$request_count" -gt 1 ]; then
+        echo "## Table of Contents"
+        echo ""
+        
+        for ((i=0; i<request_count; i++)); do
+            # Extract first line of user message for preview
+            preview=$(jq -r --argjson idx "$i" '
+                .requests[$idx].message.text // 
+                (.requests[$idx].message.parts // [] | map(.text // "") | join(""))
+            ' "$INPUT_FILE" | head -1)
+            
+            # Limit preview to 80 characters
+            if [ ${#preview} -gt 80 ]; then
+                preview="${preview:0:77}..."
+            fi
+            
+            if [ -z "$preview" ] || [ "$preview" = "null" ]; then
+                preview="[No message content]"
+            fi
+            
+            echo "- [Request $((i+1))](#request-$((i+1))): $preview"
+        done
+        
+        echo ""
+    fi
+    
     echo "---"
     echo ""
     

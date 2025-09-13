@@ -3,6 +3,17 @@
 **Participant:** peckjon
 **Assistant:** GitHub Copilot
 
+## Table of Contents
+
+- [Request 1](#request-1): I want to create a Repo Organizer that Helps me organize my own github repos,...
+- [Request 2](#request-2): 1. 5 levels max (most people will only use 1-3 levels)
+- [Request 3](#request-3): Metadata Repo Structure: Yes, go with option A for metadata structure. But......
+- [Request 4](#request-4): OK, final points:
+- [Request 5](#request-5): Perfect. Yes do this now:
+- [Request 6](#request-6): @agent Try Again
+- [Request 7](#request-7): Create a file BRAINSTORM_VERBATIM.md and dump our entire chat history into it...
+- [Request 8](#request-8): No, I need it perfectly verbatim. I'm working in VSCode; is there a way to ex...
+
 ---
 
 ## Request 1

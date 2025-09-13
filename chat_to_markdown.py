@@ -126,6 +126,39 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
     md_lines.append(f"**Participant:** {chat_data.get('requesterUsername', 'User')}")
     md_lines.append(f"**Assistant:** {chat_data.get('responderUsername', 'GitHub Copilot')}")
     md_lines.append("")
+    
+    # Generate table of contents
+    requests = chat_data.get('requests', [])
+    if len(requests) > 1:
+        md_lines.append("## Table of Contents")
+        md_lines.append("")
+        for i, request in enumerate(requests, 1):
+            # Extract first line of user message for preview
+            message = request.get('message', {})
+            preview = ""
+            if isinstance(message, dict):
+                if 'text' in message:
+                    preview = message['text']
+                elif 'parts' in message:
+                    parts = message['parts']
+                    if isinstance(parts, list):
+                        for part in parts:
+                            if isinstance(part, dict) and 'text' in part:
+                                preview = part['text']
+                                break
+            
+            # Get first line for preview (limit to 80 chars)
+            if preview:
+                first_line = preview.split('\n')[0]
+                if len(first_line) > 80:
+                    first_line = first_line[:77] + "..."
+            else:
+                first_line = "[No message content]"
+            
+            md_lines.append(f"- [Request {i}](#request-{i}): {first_line}")
+        
+        md_lines.append("")
+    
     md_lines.append("---")
     md_lines.append("")
     
