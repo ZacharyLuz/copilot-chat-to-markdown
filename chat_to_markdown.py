@@ -20,16 +20,13 @@ def extract_text_from_response_part(part: Dict[str, Any]) -> str:
             # Skip inline references and other VS Code internal objects
             if kind in ['inlineReference', 'undoStop', 'codeblockUri', 'textEditGroup']:
                 return ""
-            # Handle tool invocation messages
-            if kind in ['progressTaskSerialized', 'prepareToolInvocation', 'toolInvocationSerialized']:
-                content_value = ""
-                if 'content' in part and isinstance(part['content'], dict):
-                    content_value = part['content'].get('value', '')
-                elif 'invocationMessage' in part and isinstance(part['invocationMessage'], dict):
-                    content_value = part['invocationMessage'].get('value', '')
-                elif 'pastTenseMessage' in part and isinstance(part['pastTenseMessage'], dict):
-                    content_value = part['pastTenseMessage'].get('value', '')
-                return content_value
+            # Handle tool invocation messages - return special markers for processing
+            if kind == 'toolInvocationSerialized':
+                return f"__TOOL_INVOCATION__{json.dumps(part)}__TOOL_INVOCATION__"
+            elif kind == 'progressTaskSerialized':
+                return f"__PROGRESS_TASK__{json.dumps(part)}__PROGRESS_TASK__"
+            elif kind == 'prepareToolInvocation':
+                return ""  # Skip these as they're handled in toolInvocationSerialized
             # Handle other progress/tool invocation messages
             if 'content' in part and isinstance(part['content'], dict) and 'value' in part['content']:
                 return f"*{part['content']['value']}*"
@@ -115,6 +112,135 @@ def format_timestamp(timestamp_ms: int) -> str:
         return dt.strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError):
         return "Unknown time"
+
+def format_references(variables: List[Dict[str, Any]]) -> str:
+    """Format variable data references in the expandable format."""
+    if not variables:
+        return ""
+    
+    content_lines = []
+    reference_count = 0
+    
+    for var in variables:
+        name = var.get('name', 'Unknown')
+        kind = var.get('kind', '')
+        origin_label = var.get('originLabel', '')
+        
+        # Format the reference name
+        if name.startswith('prompt:'):
+            display_name = name[7:]  # Remove 'prompt:' prefix
+            icon = "☰"
+        else:
+            display_name = name
+            icon = "📄"
+        
+        content_lines.append(f"{icon} {display_name}")
+        reference_count += 1
+        
+        # Add origin label info if available - count as separate reference
+        if kind == 'promptFile' and origin_label:
+            # Extract the key part from origin label
+            if 'github.copilot.chat.' in origin_label:
+                label_part = origin_label.split('github.copilot.chat.')[-1].split(' ')[0]
+                content_lines.append(f"⚙️ github.copilot.chat.{label_part}")
+                reference_count += 1
+    
+    # Create details block with correct count
+    summary = f"Used {reference_count} references"
+    content = '<br>'.join(content_lines)
+    
+    return f"""<details>
+  <summary>{summary}</summary>
+  <p>{content}</p>
+</details>
+
+
+"""
+
+def format_tool_invocation_details(tool_data: Dict[str, Any]) -> str:
+    """Format tool invocation with input/output in expandable format."""
+    past_tense = tool_data.get('pastTenseMessage', {}).get('value', 'Ran tool')
+    result_details = tool_data.get('resultDetails', {})
+    
+    # Get input and output data
+    input_data = result_details.get('input', '')
+    output_data = result_details.get('output', [])
+    
+    if not input_data:
+        return ""
+    
+    try:
+        if isinstance(input_data, str):
+            input_obj = json.loads(input_data)
+        else:
+            input_obj = input_data
+        
+        # Format input as JSON
+        input_json = json.dumps(input_obj, indent=2)
+        
+        # Build the details block
+        lines = []
+        lines.append(f"<details>")
+        lines.append(f"  <summary>{past_tense}</summary>")
+        lines.append(f"  <p>Input</p>")
+        lines.append(f"")
+        lines.append(f"```json")
+        lines.append(f"{input_json}")
+        lines.append(f"```")
+        lines.append(f"")
+        
+        # Add output if available
+        if output_data and isinstance(output_data, list) and output_data:
+            output_value = output_data[0].get('value', '') if isinstance(output_data[0], dict) else str(output_data[0])
+            lines.append(f"  <p>Output</p>")
+            lines.append(f"")
+            lines.append(f"```json")
+            lines.append(f"{output_value}")
+            lines.append(f"```")
+            lines.append(f"")
+        
+        lines.append(f"</details>")
+        
+        return '\n'.join(lines) + '\n\n'
+        
+    except:
+        # Fallback for malformed input
+        return f"<details>\n  <summary>{past_tense}</summary>\n  <p>Completed with input: {input_data}</p>\n</details>\n\n"
+
+def format_progress_task(task_data: Dict[str, Any]) -> str:
+    """Format progress task with checkmark."""
+    content = task_data.get('content', {})
+    if isinstance(content, dict):
+        value = content.get('value', '')
+        if value:
+            return f"\n✔️ {value}\n"
+    return ""
+
+def process_special_markers(text: str) -> str:
+    """Process special markers for tool invocations and progress tasks."""
+    import re
+    
+    # Process tool invocation markers
+    def replace_tool_invocation(match):
+        try:
+            tool_data = json.loads(match.group(1))
+            return format_tool_invocation_details(tool_data)
+        except:
+            return ""
+    
+    text = re.sub(r'__TOOL_INVOCATION__(.*?)__TOOL_INVOCATION__', replace_tool_invocation, text, flags=re.DOTALL)
+    
+    # Process progress task markers
+    def replace_progress_task(match):
+        try:
+            task_data = json.loads(match.group(1))
+            return format_progress_task(task_data)
+        except:
+            return ""
+    
+    text = re.sub(r'__PROGRESS_TASK__(.*?)__PROGRESS_TASK__', replace_progress_task, text, flags=re.DOTALL)
+    
+    return text
 
 def format_tool_calls(tool_calls: list) -> str:
     """Format tool calls for display."""
@@ -267,6 +393,15 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
             md_lines.append("### Assistant")
             md_lines.append("")
             
+            # Add references if they exist
+            variable_data = request.get('variableData', {})
+            if isinstance(variable_data, dict):
+                variables = variable_data.get('variables', [])
+                if variables:
+                    references_formatted = format_references(variables)
+                    if references_formatted.strip():
+                        md_lines.append(references_formatted)
+            
             # First try to get consolidated response from toolCallRounds (like bash script)
             consolidated_response = ""
             result = request.get('result', {})
@@ -280,22 +415,14 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
                         
                         for round_data in tool_call_rounds:
                             if isinstance(round_data, dict):
-                                # Collect tool calls from this round
-                                tool_calls = round_data.get('toolCalls', [])
-                                if tool_calls:
-                                    all_tool_calls.extend(tool_calls)
-                                
+                                # Skip collecting tool calls - we'll get them from the detailed response parts
                                 # Collect response from this round
                                 if 'response' in round_data:
                                     round_response = round_data['response']
                                     if isinstance(round_response, str) and round_response.strip():
                                         tool_responses.append(round_response.strip())
                         
-                        # Format tool calls if any were found
-                        if all_tool_calls:
-                            tool_calls_formatted = format_tool_calls(all_tool_calls)
-                            if tool_calls_formatted.strip():
-                                md_lines.append(tool_calls_formatted)
+                        # Don't format tool calls here - they'll be handled by the detailed response processing
                         
                         # Add consolidated responses
                         if tool_responses:
@@ -311,6 +438,22 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
                 
                 if response_parts:
                     consolidated_response = '\n'.join(response_parts)
+            
+            # Always process the incremental response parts for tool details, even if we have consolidated response
+            response_parts = []
+            for part in response:
+                part_text = extract_text_from_response_part(part)
+                if part_text and part_text.strip():
+                    response_parts.append(part_text)
+            
+            if response_parts:
+                incremental_response = '\n'.join(response_parts)
+                # Process special markers for tool invocations
+                incremental_response = process_special_markers(incremental_response)
+                
+                # Use the incremental response if it has more detail, otherwise use consolidated
+                if '__TOOL_INVOCATION__' in '\n'.join(response_parts) or not consolidated_response.strip():
+                    consolidated_response = incremental_response
             
             # Use whichever response has more meaningful content
             if consolidated_response.strip():
