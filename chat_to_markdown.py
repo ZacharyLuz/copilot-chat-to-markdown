@@ -187,7 +187,67 @@ def format_references(variables: List[Dict[str, Any]]) -> str:
 
 """
 
-def format_tool_invocation_details(tool_data: Dict[str, Any]) -> str:
+def extract_content_from_tool_result(tool_result: Dict[str, Any]) -> str:
+    """Extract readable content from a tool call result structure."""
+    if not tool_result or not isinstance(tool_result, dict):
+        return ""
+    
+    content = tool_result.get('content', [])
+    if not isinstance(content, list) or not content:
+        return ""
+    
+    # Look for the content in the nested structure
+    text_parts = []
+    
+    def extract_text_recursive(node):
+        """Recursively extract text from nested node structure."""
+        if isinstance(node, dict):
+            # Check for direct text content
+            if 'text' in node:
+                text = node['text']
+                if isinstance(text, str) and text.strip():
+                    text_parts.append(text)
+            
+            # Check for children
+            if 'children' in node and isinstance(node['children'], list):
+                for child in node['children']:
+                    extract_text_recursive(child)
+            
+            # Check for value.node structure (common in tool results)
+            if 'value' in node and isinstance(node['value'], dict):
+                extract_text_recursive(node['value'])
+            
+            # Check for node property
+            if 'node' in node:
+                extract_text_recursive(node['node'])
+        
+        elif isinstance(node, list):
+            for item in node:
+                extract_text_recursive(item)
+    
+    # Process each content item
+    for content_item in content:
+        extract_text_recursive(content_item)
+    
+    if text_parts:
+        # Join and clean up the extracted text
+        full_text = ''.join(text_parts)
+        
+        # Clean up common artifacts
+        # Remove markdown code block markers at start/end if they wrap the entire content
+        full_text = full_text.strip()
+        if full_text.startswith('```') and full_text.endswith('```'):
+            lines = full_text.split('\n')
+            if len(lines) >= 2:
+                # Remove first and last lines if they're just code block markers
+                if lines[0].strip().startswith('```') and lines[-1].strip() == '```':
+                    full_text = '\n'.join(lines[1:-1])
+        
+        return full_text
+    
+    return ""
+
+def format_tool_invocation_details(tool_data: Dict[str, Any], tool_call_results: Dict[str, Any] = None, tool_call_rounds: List[Dict[str, Any]] = None) -> str:
     """Format tool invocation with input/output in expandable format."""
     past_tense = tool_data.get('pastTenseMessage', {}).get('value', 'Ran tool')
     invocation_msg = tool_data.get('invocationMessage', '')
@@ -196,12 +256,118 @@ def format_tool_invocation_details(tool_data: Dict[str, Any]) -> str:
     if not invocation_msg:
         invocation_msg = past_tense
     
-    result_details = tool_data.get('resultDetails', {})
+    # Save original invocation message for file path matching
+    original_invocation_msg = invocation_msg
     
-    # Get input and output data
+    # Clean up the invocation message to be more readable for display
+    if '[](file://' in invocation_msg:
+        # Extract filename from file URI
+        import re
+        file_match = re.search(r'\[\]\(file://([^)]+)\)', invocation_msg)
+        if file_match:
+            file_path = file_match.group(1)
+            file_name = file_path.split('/')[-1]
+            # Use past tense "Read" instead of "Reading"
+            invocation_msg = invocation_msg.replace('Reading [](', 'Read **').replace(file_match.group(0), f"**{file_name}**")
+            # Handle cases where there might be additional info after the file path
+            if ', lines ' in invocation_msg:
+                invocation_msg = invocation_msg.replace(', lines ', '**, lines ')
+            elif invocation_msg.endswith('**'):
+                pass  # Already properly formatted
+            else:
+                invocation_msg = invocation_msg.replace(f"**{file_name}**", f"**{file_name}**")
+    
+    # Simple cleanup for common patterns
+    invocation_msg = invocation_msg.replace('Reading ', 'Read ')
+    
+    # Try to find the corresponding tool call in tool_call_rounds by matching the invocation message
+    tool_result_content = ""
+    
+    if tool_call_results and tool_call_rounds:
+        # Look for a tool call that matches this invocation
+        for round_data in tool_call_rounds:
+            if isinstance(round_data, dict) and 'toolCalls' in round_data:
+                for tool_call in round_data['toolCalls']:
+                    if isinstance(tool_call, dict):
+                        tool_call_id = tool_call.get('id', '')
+                        tool_name = tool_call.get('name', '')
+                        
+                        # Try to match by tool name and arguments (for file reads)
+                        if tool_name == 'read_file' and 'Read' in original_invocation_msg:
+                            # Extract file path from arguments to match with invocation message
+                            arguments = tool_call.get('arguments', '')
+                            if isinstance(arguments, str):
+                                try:
+                                    import json
+                                    args_dict = json.loads(arguments)
+                                    file_path = args_dict.get('filePath', '')
+                                    # Use original invocation message for comparison
+                                    if file_path and file_path in original_invocation_msg:
+                                        # Found matching tool call, get its result
+                                        if tool_call_id in tool_call_results:
+                                            tool_result_content = extract_content_from_tool_result(tool_call_results[tool_call_id])
+                                            break
+                                except:
+                                    continue
+            if tool_result_content:
+                break
+    
+    # Fallback to old method for result details
+    result_details = tool_data.get('resultDetails', {})
     input_data = result_details.get('input', '')
     output_data = result_details.get('output', [])
     
+    # If we have tool result content, use it; otherwise fall back to old method
+    if tool_result_content.strip():
+        # Build the details block with actual file content
+        lines = []
+        lines.append(f"<details>")
+        lines.append(f"  <summary>{invocation_msg}</summary>")
+        
+        # Check if the content already contains code fencing
+        has_code_fencing = '```' in tool_result_content
+        
+        lines.append(f"")
+        
+        if has_code_fencing:
+            # Content already has code blocks, use 4 backticks to safely wrap it
+            lines.append(f"````")
+            lines.append(tool_result_content.rstrip())
+            lines.append(f"````")
+        else:
+            # Determine content type for syntax highlighting
+            file_ext = ""
+            if 'file://' in original_invocation_msg:
+                import re
+                file_match = re.search(r'(\.\w+)', original_invocation_msg)
+                if file_match:
+                    file_ext = file_match.group(1)
+            
+            # Map file extensions to language identifiers
+            lang_map = {
+                '.md': 'markdown',
+                '.py': 'python', 
+                '.js': 'javascript',
+                '.json': 'json',
+                '.yaml': 'yaml',
+                '.yml': 'yaml',
+                '.html': 'html',
+                '.css': 'css',
+                '.sh': 'bash',
+                '.txt': 'text'
+            }
+            lang = lang_map.get(file_ext, '')
+            
+            lines.append(f"```{lang}")
+            lines.append(tool_result_content.rstrip())
+            lines.append(f"```")
+        
+        lines.append(f"")
+        lines.append(f"</details>")
+        
+        return '\n'.join(lines) + '\n\n'
+    
+    # Original fallback method for when we don't have the actual content
     if not input_data:
         return ""
     
@@ -466,7 +632,7 @@ def format_progress_task(task_data: Dict[str, Any]) -> str:
             return f"\n✔️ {value}\n"
     return ""
 
-def process_special_markers(text: str) -> str:
+def process_special_markers(text: str, tool_call_results: Dict[str, Any] = None, tool_call_rounds: List[Dict[str, Any]] = None) -> str:
     """Process special markers for tool invocations and progress tasks."""
     import re
     
@@ -484,7 +650,7 @@ def process_special_markers(text: str) -> str:
     def replace_tool_invocation(match):
         try:
             tool_data = json.loads(match.group(1))
-            return format_tool_invocation_details(tool_data)
+            return format_tool_invocation_details(tool_data, tool_call_results, tool_call_rounds)
         except:
             return ""
     
@@ -706,10 +872,19 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
                 if part_text and part_text.strip():
                     response_parts.append(part_text)
             
+            # Extract tool call results for this request
+            tool_call_results = {}
+            tool_call_rounds = []
+            if isinstance(result, dict):
+                metadata = result.get('metadata', {})
+                if isinstance(metadata, dict):
+                    tool_call_results = metadata.get('toolCallResults', {})
+                    tool_call_rounds = metadata.get('toolCallRounds', [])
+            
             if response_parts:
                 incremental_response = '\n'.join(response_parts)
-                # Process special markers for tool invocations
-                incremental_response = process_special_markers(incremental_response)
+                # Process special markers for tool invocations with tool call results
+                incremental_response = process_special_markers(incremental_response, tool_call_results, tool_call_rounds)
                 
                 # Use the incremental response if it has more detail, otherwise use consolidated
                 if ('__TOOL_INVOCATION__' in '\n'.join(response_parts) or 
