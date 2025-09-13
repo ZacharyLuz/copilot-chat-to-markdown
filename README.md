@@ -126,6 +126,13 @@ The generated Markdown includes:
 
 Feel free to submit issues or pull requests to improve the scripts or add new features.
 
+When filing an issue or creating a pull request, please include:
+- A sample `chat.json` file that demonstrates the problem or use case
+- The expected vs. actual output behavior
+- Steps to reproduce the issue
+
+This helps with debugging and ensures fixes work correctly across different chat formats.
+
 ## License
 
 This project is licensed under the MIT License, which allows free use, modification, and distribution - see the [LICENSE](LICENSE) file for details.
