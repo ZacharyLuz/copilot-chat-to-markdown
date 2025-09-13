@@ -116,6 +116,59 @@ def format_timestamp(timestamp_ms: int) -> str:
     except (ValueError, TypeError):
         return "Unknown time"
 
+def format_tool_calls(tool_calls: list) -> str:
+    """Format tool calls for display."""
+    if not tool_calls:
+        return ""
+    
+    formatted_calls = []
+    for tool_call in tool_calls:
+        if not isinstance(tool_call, dict):
+            continue
+            
+        name = tool_call.get('name', 'Unknown tool')
+        
+        # Format the tool call as a compact command
+        call_line = f"🔧 **{name}**"
+        
+        # Format arguments if present - compact style
+        arguments = tool_call.get('arguments')
+        if arguments:
+            try:
+                if isinstance(arguments, str):
+                    # Try to parse as JSON for parameter extraction
+                    import json
+                    args_dict = json.loads(arguments)
+                elif isinstance(arguments, dict):
+                    args_dict = arguments
+                else:
+                    args_dict = {"arguments": str(arguments)}
+                
+                # Format key parameters compactly
+                params = []
+                for key, value in args_dict.items():
+                    if isinstance(value, str) and len(value) > 50:
+                        # Truncate long strings
+                        value = value[:47] + "..."
+                    elif isinstance(value, list) and len(value) > 3:
+                        # Truncate long arrays
+                        value = value[:3] + ["..."]
+                    params.append(f"{key}={value}")
+                
+                if params:
+                    call_line += f" `{', '.join(params)}`"
+                    
+            except (json.JSONDecodeError, ImportError):
+                # Fallback to simple string representation
+                if isinstance(arguments, str) and len(arguments) > 50:
+                    call_line += f" `{arguments[:47]}...`"
+                else:
+                    call_line += f" `{arguments}`"
+        
+        formatted_calls.append(call_line)
+    
+    return '\n'.join(formatted_calls) + '\n'
+
 def parse_chat_log(chat_data: Dict[str, Any]) -> str:
     """Parse the chat log JSON and convert to markdown."""
     md_lines = []
@@ -223,11 +276,28 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
                     tool_call_rounds = metadata.get('toolCallRounds', [])
                     if isinstance(tool_call_rounds, list):
                         tool_responses = []
+                        all_tool_calls = []
+                        
                         for round_data in tool_call_rounds:
-                            if isinstance(round_data, dict) and 'response' in round_data:
-                                round_response = round_data['response']
-                                if isinstance(round_response, str) and round_response.strip():
-                                    tool_responses.append(round_response.strip())
+                            if isinstance(round_data, dict):
+                                # Collect tool calls from this round
+                                tool_calls = round_data.get('toolCalls', [])
+                                if tool_calls:
+                                    all_tool_calls.extend(tool_calls)
+                                
+                                # Collect response from this round
+                                if 'response' in round_data:
+                                    round_response = round_data['response']
+                                    if isinstance(round_response, str) and round_response.strip():
+                                        tool_responses.append(round_response.strip())
+                        
+                        # Format tool calls if any were found
+                        if all_tool_calls:
+                            tool_calls_formatted = format_tool_calls(all_tool_calls)
+                            if tool_calls_formatted.strip():
+                                md_lines.append(tool_calls_formatted)
+                        
+                        # Add consolidated responses
                         if tool_responses:
                             consolidated_response = '\n'.join(tool_responses)
             

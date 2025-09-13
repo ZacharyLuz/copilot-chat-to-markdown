@@ -137,6 +137,28 @@ format_timestamp() {
         echo "### Assistant"
         echo ""
         
+        # Extract and format tool calls
+        tool_calls=$(jq -r --argjson idx "$i" '
+            .requests[$idx].result.metadata.toolCallRounds // [] |
+            map(.toolCalls // []) | flatten |
+            map(
+                if type == "object" and .name then
+                    "🔧 **" + .name + "**" + 
+                    (if .arguments then
+                        " `" + 
+                        (try (.arguments | fromjson | to_entries | map("\(.key)=\(.value)") | join(", ")) catch (.arguments | tostring)) + 
+                        "`"
+                    else "" end)
+                else empty end
+            ) | join("\n")
+        ' "$INPUT_FILE" 2>/dev/null)
+        
+        # Output tool calls if found
+        if [ -n "$tool_calls" ] && [ "$tool_calls" != "null" ] && [ "$tool_calls" != "" ]; then
+            echo "$tool_calls"
+            echo ""
+        fi
+        
         # Try to extract comprehensive response from main response array (like Python script)
         response_text=$(jq -r --argjson idx "$i" '
             .requests[$idx].response // [] |

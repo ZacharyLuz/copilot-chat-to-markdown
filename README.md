@@ -5,7 +5,8 @@ Convert GitHub Copilot chat logs from VS Code into readable Markdown format. Thi
 ## Features
 
 - ✅ **Preserves markdown formatting**: Bold text, code blocks, lists, and headers render correctly
-- ✅ **Shows tool operations**: Displays AI tool selection and file operations for context
+- ✅ **Shows tool operations**: Displays AI tool selection and file operations for context  
+- ✅ **Tool calls visibility**: Shows detailed tool invocations with parameters in compact format
 - ✅ **Clean output**: Filters out internal VS Code metadata while preserving conversation flow
 - ✅ **Two implementations**: Choose between Python (more robust) or Bash (lightweight)
 - ✅ **Response timing**: Includes response time information for performance insights
@@ -93,8 +94,9 @@ The generated Markdown includes:
 
 ### Assistant
 
-Optimizing tool selection...
-Reading [](file:///path/to/file.md)
+🔧 **read_file** `filePath=/path/to/file.md, startLine=1, endLine=50`
+🔧 **replace_string_in_file** `filePath=/path/to/file.md, oldString=old content, newString=new content`
+
 [AI response with proper **bold formatting** and code blocks]
 
 *Response time: 45.32 seconds*
