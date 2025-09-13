@@ -115,19 +115,24 @@ format_timestamp() {
         echo "### Assistant"
         echo ""
         
-        # Get response parts and extract text
-        jq -r --argjson idx "$i" '
-            .requests[$idx].response // [] | 
+        # Try to extract comprehensive response from main response array (like Python script)
+        response_text=$(jq -r --argjson idx "$i" '
+            .requests[$idx].response // [] |
             map(
-                if type == "object" then
+                if type == "array" and length > 0 then
+                    # Handle nested arrays (detailed VS Code response structure)
+                    map(if type == "object" and has("text") then .text else empty end) | join("")
+                elif type == "object" then
                     if .kind == "progressTaskSerialized" or .kind == "prepareToolInvocation" or .kind == "toolInvocationSerialized" then
                         (.content.value // .invocationMessage.value // .pastTenseMessage.value // "")
-                    elif (.value and (.value | type) == "string") then
+                    elif has("value") and (.value | type) == "string" then
                         .value
-                    elif (.content and (.content | type) == "object" and .content.value) then
+                    elif has("content") and (.content | type) == "object" and .content.value then
                         .content.value
-                    elif (.content and (.content | type) == "string") then
+                    elif has("content") and (.content | type) == "string" then
                         .content
+                    elif has("text") then
+                        .text
                     else
                         ""
                     end
@@ -136,8 +141,33 @@ format_timestamp() {
                 end
             ) | 
             map(select(. != null and . != "" and . != "*")) | 
+            join("")
+        ' "$INPUT_FILE" 2>/dev/null)
+        
+        # Also try to extract from toolCallRounds as secondary source
+        tool_response=$(jq -r --argjson idx "$i" '
+            .requests[$idx].result.metadata.toolCallRounds // [] |
+            map(.response // "") |
+            map(select(. != null and . != "")) |
             join("\n")
-        ' "$INPUT_FILE" 2>/dev/null
+        ' "$INPUT_FILE" 2>/dev/null)
+        
+        # Use the response with more content
+        final_response=""
+        if [ -n "$response_text" ] && [ "$response_text" != "null" ] && ! [[ "$response_text" =~ ^\s*$ ]]; then
+            final_response="$response_text"
+        fi
+        if [ -n "$tool_response" ] && [ "$tool_response" != "null" ] && ! [[ "$tool_response" =~ ^\s*$ ]]; then
+            if [ -z "$final_response" ] || [ ${#tool_response} -gt ${#final_response} ]; then
+                final_response="$tool_response"
+            fi
+        fi
+        
+        # Clean up the response and output it
+        if [ -n "$final_response" ]; then
+            # Clean up excessive whitespace and formatting
+            echo "$final_response" | sed 's/^[ \t]*//g' | sed '/^$/N;/^\n$/d'
+        fi
         
         echo ""
         
