@@ -17,6 +17,7 @@
 ---
 
 ## Request 1
+[^](#table-of-contents) < [>](#request-2)
 
 ### User
 
@@ -114,6 +115,7 @@ Let me know your thoughts on these points, and I'll update the PRD accordingly. 
 ---
 
 ## Request 2
+[^](#table-of-contents) [<](#request-1) [>](#request-3)
 
 ### User
 
@@ -290,6 +292,7 @@ Once you confirm these details, I'll update the PRD with all this information. D
 ---
 
 ## Request 3
+[^](#table-of-contents) [<](#request-2) [>](#request-4)
 
 ### User
 
@@ -398,6 +401,7 @@ Does the physical folder approach sound good to you? I think it's much cleaner t
 ---
 
 ## Request 4
+[^](#table-of-contents) [<](#request-3) [>](#request-5)
 
 ### User
 
@@ -541,6 +545,7 @@ Ready to update the PRD with all these details?
 ---
 
 ## Request 5
+[^](#table-of-contents) [<](#request-4) [>](#request-6)
 
 ### User
 
@@ -557,6 +562,7 @@ I'll create the BRAINSTORM.md file with our conversation and then update the PRD
 ---
 
 ## Request 6
+[^](#table-of-contents) [<](#request-5) [>](#request-7)
 
 ### User
 
@@ -595,6 +601,7 @@ The PRD is now comprehensive and ready to guide development. It includes all the
 ---
 
 ## Request 7
+[^](#table-of-contents) [<](#request-6) [>](#request-8)
 
 ### User
 
@@ -619,6 +626,7 @@ The BRAINSTORM.md file I already created captures the essence and flow of our di
 ---
 
 ## Request 8
+[^](#table-of-contents) [<](#request-7) >
 
 ### User
 

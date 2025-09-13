@@ -96,6 +96,27 @@ format_timestamp() {
     
     for ((i=0; i<request_count; i++)); do
         echo "## Request $((i+1))"
+        
+        # Add navigation links: ^ (index), < (previous), > (next)
+        nav_links="[^](#table-of-contents)"  # Up to table of contents
+        
+        if [ $i -gt 0 ]; then
+            # Previous request link
+            nav_links="$nav_links [<](#request-$i)"
+        else
+            # Placeholder for first request
+            nav_links="$nav_links <"
+        fi
+        
+        if [ $((i+1)) -lt $request_count ]; then
+            # Next request link
+            nav_links="$nav_links [>](#request-$((i+2)))"
+        else
+            # Placeholder for last request
+            nav_links="$nav_links >"
+        fi
+        
+        echo "$nav_links"
         echo ""
         
         # Extract user message

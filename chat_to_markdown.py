@@ -168,6 +168,22 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
     for i, request in enumerate(requests, 1):
         # User message
         md_lines.append(f"## Request {i}")
+        
+        # Add navigation links: ^ (index), < (previous), > (next)
+        nav_links = []
+        nav_links.append("[^](#table-of-contents)")  # Up to table of contents
+        
+        if i > 1:  # Previous request link
+            nav_links.append(f"[<](#request-{i-1})")
+        else:
+            nav_links.append("<")  # Placeholder for first request
+            
+        if i < len(requests):  # Next request link
+            nav_links.append(f"[>](#request-{i+1})")
+        else:
+            nav_links.append(">")  # Placeholder for last request
+        
+        md_lines.append(" ".join(nav_links))
         md_lines.append("")
         
         # Extract user message text
