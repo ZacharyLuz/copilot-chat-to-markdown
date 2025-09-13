@@ -347,11 +347,21 @@ def format_text_edit_group(edit_data: Dict[str, Any]) -> str:
             lines.append(f"  <p><strong>Multiple file changes ({len(all_edits)} edits)</strong></p>")
             lines.append(f"")
             
-            # Combine all edits into one code block
+            # Sort edits by line number for better grouping
+            sorted_edits = []
+            for edit in all_edits:
+                edit_range = edit.get('range', {})
+                start_line = edit_range.get('startLineNumber', 0) if edit_range else 0
+                sorted_edits.append((start_line, edit))
+            sorted_edits.sort(key=lambda x: x[0])
+            
+            # Combine all edits into one code block, grouping consecutive lines
             combined_content = []
             has_code_blocks = False
             
-            for i, edit in enumerate(all_edits):
+            i = 0
+            while i < len(sorted_edits):
+                start_line_num, edit = sorted_edits[i]
                 text_content = edit.get('text', '')
                 edit_range = edit.get('range', {})
                 
@@ -359,34 +369,69 @@ def format_text_edit_group(edit_data: Dict[str, Any]) -> str:
                 if '```' in text_content:
                     has_code_blocks = True
                 
-                # Add a comment/separator for each edit
-                if edit_range:
-                    start_line = edit_range.get('startLineNumber', '')
-                    end_line = edit_range.get('endLineNumber', '')
-                    if start_line and end_line:
-                        if start_line == end_line:
-                            combined_content.append(f"# Line {start_line}:")
+                # Look ahead to find consecutive edits
+                consecutive_edits = [(start_line_num, edit)]
+                j = i + 1
+                
+                while j < len(sorted_edits):
+                    next_line_num, next_edit = sorted_edits[j]
+                    prev_line_num = consecutive_edits[-1][0]
+                    prev_edit_range = consecutive_edits[-1][1].get('range', {})
+                    prev_end_line = prev_edit_range.get('endLineNumber', prev_line_num) if prev_edit_range else prev_line_num
+                    
+                    # Check if this edit is consecutive (starts within 1-2 lines of previous end)
+                    if next_line_num != 0 and prev_end_line != 0 and next_line_num <= prev_end_line + 2:
+                        consecutive_edits.append((next_line_num, next_edit))
+                        j += 1
+                    else:
+                        break
+                
+                # Format the group of consecutive edits
+                if len(consecutive_edits) > 1:
+                    # Multiple consecutive edits - show range and combine content
+                    first_line = consecutive_edits[0][0]
+                    last_edit_range = consecutive_edits[-1][1].get('range', {})
+                    last_line = last_edit_range.get('endLineNumber', consecutive_edits[-1][0]) if last_edit_range else consecutive_edits[-1][0]
+                    
+                    if first_line and last_line:
+                        combined_content.append(f"# Lines {first_line}-{last_line}:")
+                    
+                    # Add all content from consecutive edits without individual line markers
+                    for _, cons_edit in consecutive_edits:
+                        cons_text = cons_edit.get('text', '').rstrip()
+                        if cons_text:
+                            combined_content.append(cons_text)
+                else:
+                    # Single edit - show line number
+                    if edit_range:
+                        start_line = edit_range.get('startLineNumber', '')
+                        end_line = edit_range.get('endLineNumber', '')
+                        if start_line and end_line:
+                            if start_line == end_line:
+                                combined_content.append(f"# Line {start_line}:")
+                            else:
+                                combined_content.append(f"# Lines {start_line}-{end_line}:")
                         else:
-                            combined_content.append(f"# Lines {start_line}-{end_line}:")
+                            combined_content.append(f"# Edit {i+1}:")
                     else:
                         combined_content.append(f"# Edit {i+1}:")
-                else:
-                    combined_content.append(f"# Edit {i+1}:")
+                    
+                    combined_content.append(text_content.rstrip())
                 
-                combined_content.append(text_content.rstrip())
-                
-                # Add separator between edits (except for the last one)
-                if i < len(all_edits) - 1:
+                # Add separator between groups (except for the last one)
+                i = j
+                if i < len(sorted_edits):
                     combined_content.append("")  # Blank line separator
             
             # Use 4 backticks if content has code blocks, otherwise 3
-            if has_code_blocks:
+            final_content = '\n'.join(combined_content)
+            if has_code_blocks or '```' in final_content:
                 lines.append(f"````{lang}")
-                lines.append('\n'.join(combined_content))
+                lines.append(final_content)
                 lines.append(f"````")
             else:
                 lines.append(f"```{lang}")
-                lines.append('\n'.join(combined_content))
+                lines.append(final_content)
                 lines.append(f"```")
         
         lines.append(f"")
