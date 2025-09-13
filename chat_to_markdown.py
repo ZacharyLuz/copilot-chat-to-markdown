@@ -143,6 +143,35 @@ def format_timestamp(timestamp_ms: int) -> str:
     except (ValueError, TypeError):
         return "Unknown time"
 
+def format_error_message(error_details: Dict[str, Any]) -> str:
+    """Format error details into a markdown error box."""
+    if not error_details or not isinstance(error_details, dict):
+        return ""
+    
+    message = error_details.get('message', '')
+    if not message:
+        return ""
+    
+    # Clean up the error message - remove excessive whitespace
+    message = message.strip()
+    
+    # Create a markdown error box with special styling
+    lines = []
+    
+    # Split the error message into parts for better formatting
+    lines_in_message = message.split('\n')
+    for i, line in enumerate(lines_in_message):
+        line = line.strip()
+        if line:
+            # Prefix first line with 🚫 emoji
+            if i == 0:
+                lines.append(f"> 🚫 {line}")
+            else:
+                lines.append(f"> {line}")
+    
+    lines.append("")
+    return '\n'.join(lines)
+
 def format_references(variables: List[Dict[str, Any]]) -> str:
     """Format variable data references in the expandable format."""
     if not variables:
@@ -820,7 +849,34 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
         
         # Assistant response
         response = request.get('response', [])
-        if response:
+        result = request.get('result', {})
+        
+        # Check for error details first
+        error_details = None
+        if isinstance(result, dict):
+            error_details = result.get('errorDetails', {})
+        
+        # Show error message if request failed
+        if error_details and isinstance(error_details, dict) and error_details.get('message'):
+            md_lines.append("### Assistant")
+            md_lines.append("")
+            
+            # Add references if they exist (might be present even with errors)
+            variable_data = request.get('variableData', {})
+            if isinstance(variable_data, dict):
+                variables = variable_data.get('variables', [])
+                if variables:
+                    references_formatted = format_references(variables)
+                    if references_formatted.strip():
+                        md_lines.append(references_formatted)
+            
+            # Format and add the error message
+            error_message = format_error_message(error_details)
+            if error_message.strip():
+                md_lines.append(error_message)
+                md_lines.append("")
+        
+        elif response:
             md_lines.append("### Assistant")
             md_lines.append("")
             
@@ -835,7 +891,6 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
             
             # First try to get consolidated response from toolCallRounds (like bash script)
             consolidated_response = ""
-            result = request.get('result', {})
             if isinstance(result, dict):
                 metadata = result.get('metadata', {})
                 if isinstance(metadata, dict):
@@ -905,9 +960,6 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
                     md_lines.append("")
         
         # Add timestamp and metadata if available
-        if not result:  # Only get result if not already retrieved above
-            result = request.get('result', {})
-        
         metadata_lines = []
         
         # Add timing information
