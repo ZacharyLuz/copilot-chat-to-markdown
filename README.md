@@ -4,16 +4,23 @@ Convert GitHub Copilot chat logs from VS Code into readable Markdown format. Thi
 
 ## Features
 
+### Core Conversion Features
+- ✅ **Clean output**: Filters out internal VS Code metadata while preserving conversation flow
 - ✅ **Preserves markdown formatting**: Bold text, code blocks, lists, and headers render correctly
+- ✅ **Multiple requests**: Handles complete chat sessions with multiple back-and-forth exchanges
+
+### Navigation & Organization
+- ✅ **Table of Contents**: Auto-generated index with clickable links to each request
+- ✅ **Navigation links**: Each request includes ^ (index), < (previous), > (next) navigation
+
+### Contextual Information
 - ✅ **Shows references**: Displays attached files and settings in expandable sections
 - ✅ **Tool invocation details**: Shows detailed tool operations with input/output in collapsible blocks
 - ✅ **Progress indicators**: Includes progress messages like "✔️ Optimizing tool selection..."
-- ✅ **Clean output**: Filters out internal VS Code metadata while preserving conversation flow
+
+### Metadata & Analytics
 - ✅ **Response timing**: Includes response time information for performance insights
 - ✅ **Model information**: Shows which Copilot model was used for each response
-- ✅ **Multiple requests**: Handles complete chat sessions with multiple back-and-forth exchanges
-- ✅ **Table of Contents**: Auto-generated index with clickable links to each request
-- ✅ **Navigation links**: Each request includes ^ (index), < (previous), > (next) navigation
 
 ## Prerequisites
 
