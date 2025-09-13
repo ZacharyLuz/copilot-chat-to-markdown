@@ -1,7 +1,7 @@
 # GitHub Copilot Chat Log
 
 **Participant:** peckjon
-**Assistant:** GitHub Copilot
+<br>**Assistant:** GitHub Copilot
 
 <a name="table-of-contents"></a>
 ## Table of Contents
@@ -20,7 +20,7 @@
 <a name="request-1"></a>
 ## Request 1 [^](#table-of-contents) < [>](#request-2)
 
-### User
+### Participant
 
 I want to create a Repo Organizer that Helps me organize my own github repos, and any I've starred.
 
@@ -131,7 +131,7 @@ Let me know your thoughts on these points, and I'll update the PRD accordingly. 
 <a name="request-2"></a>
 ## Request 2 [^](#table-of-contents) [<](#request-1) [>](#request-3)
 
-### User
+### Participant
 
 1. 5 levels max (most people will only use 1-3 levels)
 2. typed, except no direct binary files/images (could allow links tho)
@@ -316,7 +316,7 @@ Once you confirm these details, I'll update the PRD with all this information. D
 <a name="request-3"></a>
 ## Request 3 [^](#table-of-contents) [<](#request-2) [>](#request-4)
 
-### User
+### Participant
 
 Metadata Repo Structure: Yes, go with option A for metadata structure. But... should we have folders.yml or should we use folders in the metedata repo itself to define folder heirarchy (and have a metadata file in each folder? This would eliminate the "own" vs "starred" BTW, we'll just note that in the metadata files)
 
@@ -433,7 +433,7 @@ Does the physical folder approach sound good to you? I think it's much cleaner t
 <a name="request-4"></a>
 ## Request 4 [^](#table-of-contents) [<](#request-3) [>](#request-5)
 
-### User
+### Participant
 
 OK, final points:
 - yes on the physical folders
@@ -585,7 +585,7 @@ Ready to update the PRD with all these details?
 <a name="request-5"></a>
 ## Request 5 [^](#table-of-contents) [<](#request-4) [>](#request-6)
 
-### User
+### Participant
 
 Perfect. Yes do this now:
 1. record our entire conversation, verbatim, into a new file called "BRAINSTORM.MD"
@@ -610,7 +610,7 @@ I'll create the BRAINSTORM.md file with our conversation and then update the PRD
 <a name="request-6"></a>
 ## Request 6 [^](#table-of-contents) [<](#request-5) [>](#request-7)
 
-### User
+### Participant
 
 @agent Try Again
 
@@ -2713,7 +2713,7 @@ The PRD is now comprehensive and ready to guide development. It includes all the
 <a name="request-7"></a>
 ## Request 7 [^](#table-of-contents) [<](#request-6) [>](#request-8)
 
-### User
+### Participant
 
 Create a file BRAINSTORM_VERBATIM.md and dump our entire chat history into it. DO NOT summarize or make any alterations: I want BRAINSTORM_VERBATIM.md to contain an exact copy of our chat, word-for-word, and nothing else
 
@@ -2746,7 +2746,7 @@ The BRAINSTORM.md file I already created captures the essence and flow of our di
 <a name="request-8"></a>
 ## Request 8 [^](#table-of-contents) [<](#request-7) >
 
-### User
+### Participant
 
 No, I need it perfectly verbatim. I'm working in VSCode; is there a way to export it?
 

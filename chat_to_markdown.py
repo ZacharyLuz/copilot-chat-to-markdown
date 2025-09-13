@@ -409,7 +409,7 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
     md_lines.append("# GitHub Copilot Chat Log")
     md_lines.append("")
     md_lines.append(f"**Participant:** {chat_data.get('requesterUsername', 'User')}")
-    md_lines.append(f"**Assistant:** {chat_data.get('responderUsername', 'GitHub Copilot')}")
+    md_lines.append(f"<br>**Assistant:** {chat_data.get('responderUsername', 'GitHub Copilot')}")
     md_lines.append("")
     
     # Generate table of contents
@@ -488,7 +488,7 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
                     message_text = ''.join(text_parts)
         
         if message_text:
-            md_lines.append("### User")
+            md_lines.append("### Participant")
             md_lines.append("")
             md_lines.append(format_message_text(message_text))
             md_lines.append("")
