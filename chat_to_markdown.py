@@ -260,12 +260,8 @@ def format_text_edit_group(edit_data: Dict[str, Any]) -> str:
         if not edits:
             return ""
         
-        # Build the details block
-        lines = []
-        lines.append(f"<details>")
-        lines.append(f"  <summary>🛠️ File Edit: {file_name}</summary>")
-        
-        # Process each edit
+        # Collect all meaningful edits
+        all_edits = []
         for edit_group in edits:
             if not edit_group:
                 continue
@@ -274,28 +270,83 @@ def format_text_edit_group(edit_data: Dict[str, Any]) -> str:
                     continue
                 
                 text_content = edit.get('text', '')
+                if text_content and text_content.strip():  # Only include non-empty edits
+                    all_edits.append(edit)
+        
+        if not all_edits:
+            return ""
+        
+        # Build the details block
+        lines = []
+        lines.append(f"<details>")
+        lines.append(f"  <summary>🛠️ File Edit: {file_name}</summary>")
+        
+        # Determine the language for syntax highlighting
+        file_ext = os.path.splitext(file_name)[1] if file_name else ''
+        lang = 'markdown' if file_ext == '.md' else ('python' if file_ext == '.py' else ('json' if file_ext == '.json' else ''))
+        
+        # If there's only one substantial edit, show it directly
+        if len(all_edits) == 1:
+            edit = all_edits[0]
+            text_content = edit.get('text', '')
+            edit_range = edit.get('range', {})
+            
+            if edit_range:
+                start_line = edit_range.get('startLineNumber', '')
+                end_line = edit_range.get('endLineNumber', '')
+                if start_line and end_line:
+                    if start_line == end_line:
+                        lines.append(f"  <p><strong>Modified line {start_line}:</strong></p>")
+                    else:
+                        lines.append(f"  <p><strong>Modified lines {start_line}-{end_line}:</strong></p>")
+                    lines.append(f"")
+            
+            lines.append(f"```{lang}")
+            lines.append(text_content.rstrip())
+            lines.append(f"```")
+        
+        # If there are multiple edits, try to consolidate them intelligently
+        elif len(all_edits) <= 5:  # Show up to 5 edits separately
+            for i, edit in enumerate(all_edits):
+                text_content = edit.get('text', '')
                 edit_range = edit.get('range', {})
                 
-                if not text_content:
-                    continue
+                if i > 0:
+                    lines.append(f"")
                 
-                # Show the range if available
                 if edit_range:
                     start_line = edit_range.get('startLineNumber', '')
                     end_line = edit_range.get('endLineNumber', '')
                     if start_line and end_line:
-                        lines.append(f"  <p><strong>Modified lines {start_line}-{end_line}:</strong></p>")
+                        if start_line == end_line:
+                            lines.append(f"  <p><strong>Line {start_line}:</strong></p>")
+                        else:
+                            lines.append(f"  <p><strong>Lines {start_line}-{end_line}:</strong></p>")
                         lines.append(f"")
                 
-                # Determine the language for syntax highlighting
-                file_ext = os.path.splitext(file_name)[1] if file_name else ''
-                lang = 'markdown' if file_ext == '.md' else ('python' if file_ext == '.py' else ('json' if file_ext == '.json' else ''))
+                lines.append(f"```{lang}")
+                lines.append(text_content.rstrip())
+                lines.append(f"```")
+        
+        # If there are many edits, just show a summary
+        else:
+            lines.append(f"  <p><strong>Multiple file changes ({len(all_edits)} edits)</strong></p>")
+            lines.append(f"")
+            
+            # Show the first substantial edit as an example
+            if all_edits:
+                first_edit = all_edits[0]
+                text_content = first_edit.get('text', '')
+                if len(text_content) > 200:
+                    text_content = text_content[:200] + "..."
                 
                 lines.append(f"```{lang}")
-                lines.append(text_content)
+                lines.append(text_content.rstrip())
                 lines.append(f"```")
                 lines.append(f"")
+                lines.append(f"  <p><em>... and {len(all_edits)-1} more edits</em></p>")
         
+        lines.append(f"")
         lines.append(f"</details>")
         
         return '\n'.join(lines) + '\n\n'
