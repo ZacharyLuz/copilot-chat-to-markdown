@@ -31,7 +31,7 @@ Convert GitHub Copilot chat logs from VS Code into readable Markdown format. Thi
 First, you need to export your chat history from VS Code:
 
 1. Open the Command Palette (`Cmd+Shift+P` on macOS or `Ctrl+Shift+P` on Windows/Linux)
-2. Type "GitHub Copilot: Export Chat" and select it
+2. Type "Chat: Export Chat" and select it
 3. Choose where to save your chat export JSON file
 4. The file will contain your complete chat history in JSON format
 
