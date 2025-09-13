@@ -130,6 +130,7 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
     # Generate table of contents
     requests = chat_data.get('requests', [])
     if len(requests) > 1:
+        md_lines.append('<a name="table-of-contents"></a>')
         md_lines.append("## Table of Contents")
         md_lines.append("")
         for i, request in enumerate(requests, 1):
@@ -180,6 +181,8 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
         else:
             nav_links.append(">")  # Placeholder for last request
         
+        # Add explicit anchor and header with navigation
+        md_lines.append(f'<a name="request-{i}"></a>')
         md_lines.append(f"## Request {i} {' '.join(nav_links)}")
         md_lines.append("")
         

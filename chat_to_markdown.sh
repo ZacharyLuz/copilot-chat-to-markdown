@@ -63,6 +63,7 @@ format_timestamp() {
     # Generate table of contents
     request_count=$(jq -r '.requests | length' "$INPUT_FILE")
     if [ "$request_count" -gt 1 ]; then
+        echo '<a name="table-of-contents"></a>'
         echo "## Table of Contents"
         echo ""
         
@@ -114,6 +115,8 @@ format_timestamp() {
             nav_links="$nav_links >"
         fi
         
+        # Add explicit anchor and header with navigation
+        echo "<a name=\"request-$((i+1))\"></a>"
         echo "## Request $((i+1)) $nav_links"
         echo ""
         

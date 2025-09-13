@@ -3,6 +3,7 @@
 **Participant:** peckjon
 **Assistant:** GitHub Copilot
 
+<a name="table-of-contents"></a>
 ## Table of Contents
 
 - [Request 1](#request-1): I want to create a Repo Organizer that Helps me organize my own github repos,...
@@ -16,6 +17,7 @@
 
 ---
 
+<a name="request-1"></a>
 ## Request 1 [^](#table-of-contents) < [>](#request-2)
 
 ### User
@@ -113,6 +115,7 @@ Let me know your thoughts on these points, and I'll update the PRD accordingly. 
 
 ---
 
+<a name="request-2"></a>
 ## Request 2 [^](#table-of-contents) [<](#request-1) [>](#request-3)
 
 ### User
@@ -289,6 +292,7 @@ Once you confirm these details, I'll update the PRD with all this information. D
 
 ---
 
+<a name="request-3"></a>
 ## Request 3 [^](#table-of-contents) [<](#request-2) [>](#request-4)
 
 ### User
@@ -397,6 +401,7 @@ Does the physical folder approach sound good to you? I think it's much cleaner t
 
 ---
 
+<a name="request-4"></a>
 ## Request 4 [^](#table-of-contents) [<](#request-3) [>](#request-5)
 
 ### User
@@ -540,6 +545,7 @@ Ready to update the PRD with all these details?
 
 ---
 
+<a name="request-5"></a>
 ## Request 5 [^](#table-of-contents) [<](#request-4) [>](#request-6)
 
 ### User
@@ -556,6 +562,7 @@ I'll create the BRAINSTORM.md file with our conversation and then update the PRD
 
 ---
 
+<a name="request-6"></a>
 ## Request 6 [^](#table-of-contents) [<](#request-5) [>](#request-7)
 
 ### User
@@ -594,6 +601,7 @@ The PRD is now comprehensive and ready to guide development. It includes all the
 
 ---
 
+<a name="request-7"></a>
 ## Request 7 [^](#table-of-contents) [<](#request-6) [>](#request-8)
 
 ### User
@@ -618,6 +626,7 @@ The BRAINSTORM.md file I already created captures the essence and flow of our di
 
 ---
 
+<a name="request-8"></a>
 ## Request 8 [^](#table-of-contents) [<](#request-7) >
 
 ### User
