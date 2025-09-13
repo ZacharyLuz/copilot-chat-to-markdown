@@ -17,9 +17,18 @@ def extract_text_from_response_part(part: Dict[str, Any]) -> str:
         # Skip internal VS Code/Copilot metadata
         if 'kind' in part:
             kind = part['kind']
-            # Skip all internal system messages and metadata
-            if kind in ['progressTaskSerialized', 'prepareToolInvocation', 'toolInvocationSerialized', 
-                       'undoStop', 'codeblockUri', 'textEditGroup']:
+            # Handle tool invocation messages
+            if kind in ['progressTaskSerialized', 'prepareToolInvocation', 'toolInvocationSerialized']:
+                content_value = ""
+                if 'content' in part and isinstance(part['content'], dict):
+                    content_value = part['content'].get('value', '')
+                elif 'invocationMessage' in part and isinstance(part['invocationMessage'], dict):
+                    content_value = part['invocationMessage'].get('value', '')
+                elif 'pastTenseMessage' in part and isinstance(part['pastTenseMessage'], dict):
+                    content_value = part['pastTenseMessage'].get('value', '')
+                return content_value
+            # Skip other internal system messages and metadata
+            if kind in ['undoStop', 'codeblockUri', 'textEditGroup']:
                 return ""
             # Handle other progress/tool invocation messages
             if 'content' in part and isinstance(part['content'], dict) and 'value' in part['content']:
@@ -58,7 +67,19 @@ def format_message_text(text: str) -> str:
         clean_line = line.rstrip()
         formatted_lines.append(clean_line)
     
-    return '\n'.join(formatted_lines)
+    # Remove excessive blank lines to match bash script formatting
+    result_lines = []
+    prev_blank = False
+    
+    for line in formatted_lines:
+        is_blank = line.strip() == ''
+        # Skip consecutive blank lines
+        if is_blank and prev_blank:
+            continue
+        result_lines.append(line)
+        prev_blank = is_blank
+    
+    return '\n'.join(result_lines)
 
 def format_timestamp(timestamp_ms: int) -> str:
     """Format timestamp from milliseconds to readable format."""
