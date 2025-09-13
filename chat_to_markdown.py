@@ -17,6 +17,9 @@ def extract_text_from_response_part(part: Dict[str, Any]) -> str:
         # Skip internal VS Code/Copilot metadata
         if 'kind' in part:
             kind = part['kind']
+            # Skip inline references and other VS Code internal objects
+            if kind in ['inlineReference', 'undoStop', 'codeblockUri', 'textEditGroup']:
+                return ""
             # Handle tool invocation messages
             if kind in ['progressTaskSerialized', 'prepareToolInvocation', 'toolInvocationSerialized']:
                 content_value = ""
@@ -27,9 +30,6 @@ def extract_text_from_response_part(part: Dict[str, Any]) -> str:
                 elif 'pastTenseMessage' in part and isinstance(part['pastTenseMessage'], dict):
                     content_value = part['pastTenseMessage'].get('value', '')
                 return content_value
-            # Skip other internal system messages and metadata
-            if kind in ['undoStop', 'codeblockUri', 'textEditGroup']:
-                return ""
             # Handle other progress/tool invocation messages
             if 'content' in part and isinstance(part['content'], dict) and 'value' in part['content']:
                 return f"*{part['content']['value']}*"
@@ -38,25 +38,43 @@ def extract_text_from_response_part(part: Dict[str, Any]) -> str:
             elif 'pastTenseMessage' in part and isinstance(part['pastTenseMessage'], dict) and 'value' in part['pastTenseMessage']:
                 return f"*{part['pastTenseMessage']['value']}*"
             
-        # Skip objects with internal IDs or metadata structure
-        if 'id' in part and ('kind' in part or '$mid' in part):
+        # Skip objects with internal IDs, metadata structure, or inline references
+        if ('id' in part and ('kind' in part or '$mid' in part)) or '$mid' in part or 'inlineReference' in part:
             return ""
             
         # Handle regular content
         if 'value' in part:
-            return part['value']
+            value = part['value']
+            # Skip if the value is just a raw object representation
+            if isinstance(value, str) and ('{' in value and '$mid' in value):
+                return ""
+            return value
         elif 'content' in part:
             if isinstance(part['content'], str):
                 return part['content']
             elif isinstance(part['content'], dict) and 'value' in part['content']:
                 return part['content']['value']
     
+    # Skip if the part itself looks like raw metadata
+    if isinstance(part, str) and ('{' in part and ('$mid' in part or 'kind' in part)):
+        return ""
+        
     return str(part) if part else ""
 
 def format_message_text(text: str) -> str:
     """Format message text with proper markdown."""
     if not text:
         return ""
+    
+    # Remove any remaining raw object representations
+    if '{' in text and ('$mid' in text or 'kind' in text):
+        # Try to clean out just the problematic parts
+        lines = text.split('\n')
+        clean_lines = []
+        for line in lines:
+            if not ('{' in line and ('$mid' in line or 'kind' in line)):
+                clean_lines.append(line)
+        text = '\n'.join(clean_lines)
     
     # Clean up excessive whitespace but preserve intentional line breaks
     lines = text.split('\n')
@@ -67,7 +85,7 @@ def format_message_text(text: str) -> str:
         clean_line = line.rstrip()
         formatted_lines.append(clean_line)
     
-    # Remove excessive blank lines to match bash script formatting
+    # Remove excessive blank lines and clean up artifacts
     result_lines = []
     prev_blank = False
     
@@ -76,8 +94,16 @@ def format_message_text(text: str) -> str:
         # Skip consecutive blank lines
         if is_blank and prev_blank:
             continue
-        result_lines.append(line)
+        # Skip lines that are just malformed artifacts
+        if line.strip() and not ('{' in line and ('$mid' in line or 'kind' in line)):
+            result_lines.append(line)
+        elif is_blank:
+            result_lines.append(line)
         prev_blank = is_blank
+    
+    # Remove trailing empty lines
+    while result_lines and result_lines[-1].strip() == '':
+        result_lines.pop()
     
     return '\n'.join(result_lines)
 
@@ -142,13 +168,17 @@ def parse_chat_log(chat_data: Dict[str, Any]) -> str:
             response_parts = []
             for part in response:
                 part_text = extract_text_from_response_part(part)
-                if part_text.strip():
+                if part_text and part_text.strip():
                     response_parts.append(part_text)
             
             if response_parts:
+                # Join parts and clean up excessive whitespace
                 full_response = '\n'.join(response_parts)
-                md_lines.append(format_message_text(full_response))
-                md_lines.append("")
+                # Remove any leftover empty lines or malformed content
+                cleaned_response = format_message_text(full_response)
+                if cleaned_response.strip():  # Only add if there's actual content
+                    md_lines.append(cleaned_response)
+                    md_lines.append("")
         
         # Add timestamp and metadata if available
         result = request.get('result', {})
