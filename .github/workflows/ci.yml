@@ -39,7 +39,7 @@ jobs:
 
     - name: Lint with Pylint
       run: |
-        pylint --max-line-length=120 --disable=C0114,C0116 chat_to_markdown.py || true
+        pylint --max-line-length=120 --disable=C0114,C0116,R0913,R0912,R0915 chat_to_markdown.py --exit-zero
 
     - name: Lint with Flake8
       run: |
@@ -47,8 +47,7 @@ jobs:
 
     - name: Type check with mypy
       run: |
-        mypy --ignore-missing-imports chat_to_markdown.py || true
-      continue-on-error: true
+        mypy --ignore-missing-imports chat_to_markdown.py --no-error-summary || echo "Type checking completed with warnings"
 
   security-scan:
     name: Security Scanning
@@ -101,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
 
     steps:
     - name: Checkout code

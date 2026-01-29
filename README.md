@@ -24,7 +24,7 @@ Convert GitHub Copilot chat logs from VS Code into readable Markdown format. Thi
 
 ## Prerequisites
 
-- Python 3.6+
+- Python 3.7+
 - No additional dependencies (uses only standard library)
 
 ## Installation

@@ -71,17 +71,39 @@ def validate_output_path(output_path: str) -> None:
     abs_path = os.path.abspath(normalized)
     
     # Prevent writing to sensitive system directories
-    forbidden_prefixes = ['/etc/', '/sys/', '/proc/', '/dev/', '/boot/']
     if os.name != 'nt':  # Unix-like systems
+        forbidden_prefixes = ['/etc/', '/sys/', '/proc/', '/dev/', '/boot/']
         for prefix in forbidden_prefixes:
             if abs_path.startswith(prefix):
                 raise ValueError(
                     f"Cannot write to system directory: {abs_path}. "
                     f"Please specify a file in a user-accessible directory."
                 )
+    else:  # Windows systems
+        # Windows system directories (case-insensitive)
+        forbidden_patterns = [
+            'C:\\Windows\\',
+            'C:\\Program Files\\',
+            'C:\\Program Files (x86)\\',
+            'C:\\ProgramData\\Windows\\',
+        ]
+        abs_path_lower = abs_path.lower()
+        for pattern in forbidden_patterns:
+            if abs_path_lower.startswith(pattern.lower()):
+                raise ValueError(
+                    f"Cannot write to system directory: {abs_path}. "
+                    f"Please specify a file in a user-accessible directory."
+                )
+    
+    # Check if parent directory exists
+    parent_dir = os.path.dirname(abs_path)
+    if parent_dir and not os.path.exists(parent_dir):
+        raise ValueError(
+            f"Parent directory does not exist: {parent_dir}. "
+            f"Please create the directory first or specify an existing directory."
+        )
     
     # Check if parent directory is writable (if it exists)
-    parent_dir = os.path.dirname(abs_path)
     if parent_dir and os.path.exists(parent_dir):
         if not os.access(parent_dir, os.W_OK):
             raise ValueError(f"Cannot write to directory: {parent_dir}")
@@ -751,8 +773,8 @@ def process_special_markers(text: str, tool_call_results: Dict[str, Any] = None,
             edit_data = json.loads(match.group(1))
             return format_text_edit_group(edit_data)
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            # Log the error but continue processing
-            print(f"Warning: Failed to parse text edit group: {e}", file=sys.stderr)
+            # Log the error with context
+            print(f"Warning [process_special_markers]: Failed to parse text edit group: {e}", file=sys.stderr)
             return ""
     
     text = re.sub(r'__TEXT_EDIT_GROUP__(.*?)__TEXT_EDIT_GROUP__', replace_text_edit_group, text, flags=re.DOTALL)
@@ -763,7 +785,7 @@ def process_special_markers(text: str, tool_call_results: Dict[str, Any] = None,
             tool_data = json.loads(match.group(1))
             return format_tool_invocation_details(tool_data, tool_call_results, tool_call_rounds)
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            print(f"Warning: Failed to parse tool invocation: {e}", file=sys.stderr)
+            print(f"Warning [process_special_markers]: Failed to parse tool invocation: {e}", file=sys.stderr)
             return ""
     
     text = re.sub(r'__TOOL_INVOCATION__(.*?)__TOOL_INVOCATION__', replace_tool_invocation, text, flags=re.DOTALL)
@@ -774,7 +796,7 @@ def process_special_markers(text: str, tool_call_results: Dict[str, Any] = None,
             task_data = json.loads(match.group(1))
             return format_progress_task(task_data)
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            print(f"Warning: Failed to parse progress task: {e}", file=sys.stderr)
+            print(f"Warning [process_special_markers]: Failed to parse progress task: {e}", file=sys.stderr)
             return ""
     
     text = re.sub(r'__PROGRESS_TASK__(.*?)__PROGRESS_TASK__', replace_progress_task, text, flags=re.DOTALL)
