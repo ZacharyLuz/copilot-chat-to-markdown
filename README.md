@@ -113,6 +113,28 @@ The generated Markdown includes:
 [Next exchange...]
 ```
 
+## Security
+
+This tool implements several security best practices:
+
+- ✅ **Input validation**: File size limits (100 MB) prevent DoS attacks
+- ✅ **Path sanitization**: Prevents path traversal vulnerabilities
+- ✅ **Output validation**: Blocks writing to system directories
+- ✅ **Proper error handling**: Specific exception types with clear messages
+- ✅ **No external dependencies**: Uses only Python standard library
+
+For detailed security information, see [SECURITY.md](SECURITY.md).
+
+### Security Recommendations
+
+When using this tool:
+1. **Only process trusted files**: Use chat logs from your own VS Code exports
+2. **Review large files first**: Consider inspecting files before processing
+3. **Check output location**: Write to user directories, not system locations
+4. **Redact secrets**: Remove sensitive data from chat logs before conversion
+
+If you discover a security vulnerability, please see our [Security Policy](SECURITY.md#reporting-a-vulnerability).
+
 ## Troubleshooting
 
 ### Common Issues
@@ -128,7 +150,26 @@ The generated Markdown includes:
    ```
 
 3. **Empty output**: Check if the input JSON has the expected VS Code chat structure
+
 4. **File not found**: Verify file paths are correct and files exist
+
+5. **File too large**: Input files over 100 MB will be rejected
+   ```
+   Error: Input file is too large: 150.5 MB (maximum: 100 MB)
+   ```
+   Solution: Break the chat log into smaller files or increase `MAX_FILE_SIZE_MB` constant if needed
+
+6. **Permission denied**: Ensure you have write permissions for the output directory
+   ```bash
+   # Check directory permissions
+   ls -ld $(dirname output.md)
+   ```
+
+7. **System directory blocked**: Cannot write to protected directories like `/etc/`
+   ```
+   Error: Cannot write to system directory
+   ```
+   Solution: Choose a user-accessible directory like `~/Documents/`
 
 ## Contributing
 
