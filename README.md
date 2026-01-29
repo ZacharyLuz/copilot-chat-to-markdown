@@ -27,6 +27,24 @@ Convert GitHub Copilot chat logs from VS Code into readable Markdown format. Thi
 - Python 3.6+
 - No additional dependencies (uses only standard library)
 
+## Installation
+
+### Option 1: Direct Download
+Download `chat_to_markdown.py` and run it directly - no installation needed!
+
+### Option 2: Clone Repository
+```bash
+git clone https://github.com/ZacharyLuz/copilot-chat-to-markdown.git
+cd copilot-chat-to-markdown
+```
+
+### Option 3: For Development
+```bash
+git clone https://github.com/ZacharyLuz/copilot-chat-to-markdown.git
+cd copilot-chat-to-markdown
+pip install -r requirements-dev.txt  # Optional: for linting and testing
+```
+
 ## Usage
 
 ### 1. Export Chat from VS Code
@@ -134,6 +152,34 @@ When using this tool:
 4. **Redact secrets**: Remove sensitive data from chat logs before conversion
 
 If you discover a security vulnerability, please see our [Security Policy](SECURITY.md#reporting-a-vulnerability).
+
+## Testing
+
+### Running Tests
+
+This project includes comprehensive tests to validate security and functionality:
+
+```bash
+# Run simple tests (no dependencies required)
+python3 tests/test_simple.py
+
+# Run with pytest (requires pytest installation)
+pip install pytest pytest-cov
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ --cov=. --cov-report=term-missing
+```
+
+### What's Tested
+
+- ✅ Path sanitization (prevents path traversal)
+- ✅ Input validation (file size, type checking)
+- ✅ Output path validation
+- ✅ Text processing and formatting
+- ✅ Unicode handling
+- ✅ Error handling
+- ✅ Integration with sample files
 
 ## Troubleshooting
 
