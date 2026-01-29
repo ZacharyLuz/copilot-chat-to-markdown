@@ -1,0 +1,18 @@
+# Python Requirements
+# This project uses only the Python standard library and has no external dependencies.
+# Python 3.6 or higher is required.
+
+# Development dependencies (optional)
+# Uncomment the following lines if you want to use development tools:
+
+# Code quality and linting
+# pylint>=2.15.0
+# black>=22.0.0
+# mypy>=0.990
+
+# Security scanning
+# bandit>=1.7.4
+
+# Testing
+# pytest>=7.2.0
+# pytest-cov>=4.0.0

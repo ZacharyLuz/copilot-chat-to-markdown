@@ -1,0 +1,23 @@
+# Development Requirements
+# Install these for local development and testing
+# Usage: pip install -r requirements-dev.txt
+
+# Code formatting
+black>=22.0.0
+
+# Linting and code quality
+pylint>=2.15.0
+flake8>=5.0.0
+
+# Type checking
+mypy>=0.990
+
+# Security scanning
+bandit>=1.7.4
+
+# Testing
+pytest>=7.2.0
+pytest-cov>=4.0.0
+
+# Pre-commit hooks
+pre-commit>=2.20.0

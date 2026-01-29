@@ -8,8 +8,106 @@ Usage: python chat_to_markdown.py input.json output.md
 import json
 import sys
 import argparse
+import os
+import re
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
+
+# Configuration constants
+MAX_FILE_SIZE_MB = 100  # Maximum input file size in MB
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+MAX_TEXT_LENGTH = 10_000_000  # Maximum text length for regex operations (10MB of text)
+
+
+def validate_file_size(file_path: str) -> None:
+    """
+    Validate that input file size is within acceptable limits.
+    
+    Args:
+        file_path: Path to the file to validate
+        
+    Raises:
+        ValueError: If file is too large
+    """
+    file_size = os.path.getsize(file_path)
+    if file_size > MAX_FILE_SIZE_BYTES:
+        raise ValueError(
+            f"Input file is too large: {file_size / (1024 * 1024):.1f} MB "
+            f"(maximum: {MAX_FILE_SIZE_MB} MB). "
+            f"This limit prevents denial-of-service attacks."
+        )
+
+
+def sanitize_file_path(file_path: str) -> str:
+    """
+    Sanitize a file path to prevent path traversal attacks.
+    
+    Args:
+        file_path: The file path to sanitize
+        
+    Returns:
+        The base filename only, without directory components
+        
+    Note:
+        This function only returns the basename to prevent path traversal.
+        For display purposes, this is sufficient.
+    """
+    # Extract just the filename, removing any directory traversal attempts
+    return os.path.basename(file_path)
+
+
+def validate_output_path(output_path: str) -> None:
+    """
+    Validate that output path is safe to write to.
+    
+    Args:
+        output_path: Path to validate
+        
+    Raises:
+        ValueError: If path is unsafe (e.g., absolute path to system directory)
+    """
+    # Normalize the path to remove any .. or symbolic links
+    normalized = os.path.normpath(output_path)
+    abs_path = os.path.abspath(normalized)
+    
+    # Prevent writing to sensitive system directories
+    if os.name != 'nt':  # Unix-like systems
+        forbidden_prefixes = ['/etc/', '/sys/', '/proc/', '/dev/', '/boot/']
+        for prefix in forbidden_prefixes:
+            if abs_path.startswith(prefix):
+                raise ValueError(
+                    f"Cannot write to system directory: {abs_path}. "
+                    f"Please specify a file in a user-accessible directory."
+                )
+    else:  # Windows systems
+        # Windows system directories (case-insensitive)
+        forbidden_patterns = [
+            'C:\\Windows\\',
+            'C:\\Program Files\\',
+            'C:\\Program Files (x86)\\',
+            'C:\\ProgramData\\Windows\\',
+        ]
+        abs_path_lower = abs_path.lower()
+        for pattern in forbidden_patterns:
+            if abs_path_lower.startswith(pattern.lower()):
+                raise ValueError(
+                    f"Cannot write to system directory: {abs_path}. "
+                    f"Please specify a file in a user-accessible directory."
+                )
+    
+    # Check if parent directory exists
+    parent_dir = os.path.dirname(abs_path)
+    if parent_dir and not os.path.exists(parent_dir):
+        raise ValueError(
+            f"Parent directory does not exist: {parent_dir}. "
+            f"Please create the directory first or specify an existing directory."
+        )
+    
+    # Check if parent directory is writable (if it exists)
+    if parent_dir and os.path.exists(parent_dir):
+        if not os.access(parent_dir, os.W_OK):
+            raise ValueError(f"Cannot write to directory: {parent_dir}")
+
 
 def extract_text_from_response_part(part: Dict[str, Any]) -> str:
     """Extract text content from a response part, handling different formats."""
@@ -81,7 +179,6 @@ def format_message_text(text: str) -> str:
     
     # Fix checkmark lists that need proper spacing for markdown rendering
     # Many markdown renderers don't properly separate lines that start with emojis
-    import re
     lines = text.split('\n')
     formatted_lines = []
     
@@ -291,12 +388,12 @@ def format_tool_invocation_details(tool_data: Dict[str, Any], tool_call_results:
     # Clean up the invocation message to be more readable for display
     if '[](file://' in invocation_msg:
         # Extract filename from file URI and create clean display message
-        import re
         file_match = re.search(r'\[\]\(file://([^)]+)(\#[^)]+)?\)', invocation_msg)
         if file_match:
             file_path = file_match.group(1)
             fragment = file_match.group(2) or ''  # Handle URL fragments like #1-1
-            file_name = file_path.split('/')[-1]
+            # Sanitize file path to prevent path traversal
+            file_name = sanitize_file_path(file_path)
             
             # Create clean message - check for additional info like line numbers
             remaining_text = invocation_msg[invocation_msg.find(file_match.group(0)) + len(file_match.group(0)):]
@@ -332,7 +429,6 @@ def format_tool_invocation_details(tool_data: Dict[str, Any], tool_call_results:
                             arguments = tool_call.get('arguments', '')
                             if isinstance(arguments, str):
                                 try:
-                                    import json
                                     args_dict = json.loads(arguments)
                                     file_path = args_dict.get('filePath', '')
                                     # Use original invocation message for comparison
@@ -341,7 +437,7 @@ def format_tool_invocation_details(tool_data: Dict[str, Any], tool_call_results:
                                         if tool_call_id in tool_call_results:
                                             tool_result_content = extract_content_from_tool_result(tool_call_results[tool_call_id])
                                             break
-                                except:
+                                except (json.JSONDecodeError, ValueError, TypeError):
                                     continue
             if tool_result_content:
                 break
@@ -372,7 +468,6 @@ def format_tool_invocation_details(tool_data: Dict[str, Any], tool_call_results:
             # Determine content type for syntax highlighting
             file_ext = ""
             if 'file://' in original_invocation_msg:
-                import re
                 file_match = re.search(r'(\.\w+)', original_invocation_msg)
                 if file_match:
                     file_ext = file_match.group(1)
@@ -439,8 +534,9 @@ def format_tool_invocation_details(tool_data: Dict[str, Any], tool_call_results:
         
         return '\n'.join(lines) + '\n\n'
         
-    except:
-        # Fallback for malformed input
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        # Fallback for malformed input - log warning
+        print(f"Warning: Failed to format tool invocation details: {e}", file=sys.stderr)
         return f"<details>\n  <summary>{invocation_msg}</summary>\n  <p>Completed with input: {input_data}</p>\n</details>\n\n"
 
 
@@ -452,9 +548,8 @@ def format_text_edit_group(edit_data: Dict[str, Any]) -> str:
         if not file_path:
             file_path = uri.get('path', 'Unknown file')
         
-        # Extract just the filename for display
-        import os
-        file_name = os.path.basename(file_path) if file_path else 'Unknown file'
+        # Extract just the filename for display and sanitize
+        file_name = sanitize_file_path(file_path) if file_path else 'Unknown file'
         
         edits = edit_data.get('edits', [])
         if not edits:
@@ -609,7 +704,6 @@ def format_text_edit_group(edit_data: Dict[str, Any]) -> str:
                     if consecutive_text_parts:
                         combined_consecutive = '\n'.join(consecutive_text_parts)
                         # Remove excessive consecutive blank lines but preserve intentional spacing
-                        import re
                         # Replace multiple consecutive blank lines with maximum of 2 blank lines
                         combined_consecutive = re.sub(r'\n\s*\n\s*\n+', '\n\n', combined_consecutive)
                         # Remove any leading/trailing blank lines from the combined content
@@ -668,14 +762,19 @@ def format_progress_task(task_data: Dict[str, Any]) -> str:
 
 def process_special_markers(text: str, tool_call_results: Dict[str, Any] = None, tool_call_rounds: List[Dict[str, Any]] = None) -> str:
     """Process special markers for tool invocations and progress tasks."""
-    import re
+    
+    # Validate input length to prevent ReDoS attacks
+    if len(text) > MAX_TEXT_LENGTH:
+        raise ValueError(f"Text too long for processing: {len(text)} bytes (max: {MAX_TEXT_LENGTH})")
     
     # Process text edit group markers
     def replace_text_edit_group(match):
         try:
             edit_data = json.loads(match.group(1))
             return format_text_edit_group(edit_data)
-        except:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            # Log the error with context
+            print(f"Warning [process_special_markers]: Failed to parse text edit group: {e}", file=sys.stderr)
             return ""
     
     text = re.sub(r'__TEXT_EDIT_GROUP__(.*?)__TEXT_EDIT_GROUP__', replace_text_edit_group, text, flags=re.DOTALL)
@@ -685,7 +784,8 @@ def process_special_markers(text: str, tool_call_results: Dict[str, Any] = None,
         try:
             tool_data = json.loads(match.group(1))
             return format_tool_invocation_details(tool_data, tool_call_results, tool_call_rounds)
-        except:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            print(f"Warning [process_special_markers]: Failed to parse tool invocation: {e}", file=sys.stderr)
             return ""
     
     text = re.sub(r'__TOOL_INVOCATION__(.*?)__TOOL_INVOCATION__', replace_tool_invocation, text, flags=re.DOTALL)
@@ -695,7 +795,8 @@ def process_special_markers(text: str, tool_call_results: Dict[str, Any] = None,
         try:
             task_data = json.loads(match.group(1))
             return format_progress_task(task_data)
-        except:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            print(f"Warning [process_special_markers]: Failed to parse progress task: {e}", file=sys.stderr)
             return ""
     
     text = re.sub(r'__PROGRESS_TASK__(.*?)__PROGRESS_TASK__', replace_progress_task, text, flags=re.DOTALL)
@@ -1001,6 +1102,11 @@ def main():
         epilog="""
 Examples:
   python chat_to_markdown.py input.json output.md
+
+Security:
+  - Input files are limited to 100 MB to prevent DoS attacks
+  - File paths are sanitized to prevent path traversal
+  - Output paths are validated to prevent writing to system directories
         """
     )
     parser.add_argument('input_file', help='Input JSON file (chat log)')
@@ -1009,9 +1115,27 @@ Examples:
     args = parser.parse_args()
     
     try:
+        # Validate input file exists
+        if not os.path.exists(args.input_file):
+            raise FileNotFoundError(f"Input file not found: {args.input_file}")
+        
+        # Validate input file is a regular file
+        if not os.path.isfile(args.input_file):
+            raise ValueError(f"Input path is not a file: {args.input_file}")
+        
+        # Validate file size to prevent DoS
+        validate_file_size(args.input_file)
+        
+        # Validate output path
+        validate_output_path(args.output_file)
+        
         # Read the JSON file
         with open(args.input_file, 'r', encoding='utf-8') as f:
             chat_data = json.load(f)
+        
+        # Validate that we got a dictionary or list
+        if not isinstance(chat_data, (dict, list)):
+            raise ValueError(f"Invalid chat data format: expected object or array, got {type(chat_data).__name__}")
         
         # Convert to markdown
         markdown_content = parse_chat_log(chat_data)
@@ -1022,11 +1146,17 @@ Examples:
         
         print(f"Successfully converted {args.input_file} to {args.output_file}")
         
-    except FileNotFoundError:
-        print(f"Error: Could not find input file '{args.input_file}'", file=sys.stderr)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     except json.JSONDecodeError as e:
         print(f"Error: Invalid JSON in '{args.input_file}': {e}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except PermissionError as e:
+        print(f"Error: Permission denied: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
