@@ -1,5 +1,7 @@
 # Copilot Chat to Markdown
 
+> **Fork note**: This fork includes a fix for [surrogate encoding errors](https://github.com/peckjon/copilot-chat-to-markdown/issues/4) that crash the converter on Windows when chat exports contain unpaired UTF-16 surrogates. See [What's different in this fork?](#whats-different-in-this-fork) below. Upstream PR: [peckjon#5](https://github.com/peckjon/copilot-chat-to-markdown/pull/5).
+
 Convert GitHub Copilot chat logs from VS Code into readable Markdown format. This tool parses the chat JSON export from VS Code and generates clean Markdown files showing the conversation history with proper formatting and navigation.
 
 ## Features
@@ -129,6 +131,17 @@ The generated Markdown includes:
 
 3. **Empty output**: Check if the input JSON has the expected VS Code chat structure
 4. **File not found**: Verify file paths are correct and files exist
+5. **Surrogate encoding errors** (`\udeXX`): This fork handles these automatically. If you're using the upstream version, unpaired UTF-16 surrogates in chat exports will crash the converter with `UnicodeEncodeError`. Switch to this fork or apply the fix from [PR #5](https://github.com/peckjon/copilot-chat-to-markdown/pull/5).
+
+## What's different in this fork?
+
+This fork adds a `sanitize_surrogates()` function that strips unpaired UTF-16 surrogate characters (`\uD800`–`\uDFFF`) from chat JSON before processing. These surrogates appear in some VS Code chat exports (particularly long sessions with tool invocations) and cause `UnicodeEncodeError` crashes on Windows.
+
+**Changes**:
+- `chat_to_markdown.py`: Added `sanitize_surrogates()`, reads input with `errors='surrogatepass'`, writes output with `errors='replace'`
+- `samples/chat_with_surrogates.json`: Test fixture containing surrogate characters for validation
+
+**Upstream tracking**: [Issue #4](https://github.com/peckjon/copilot-chat-to-markdown/issues/4) / [PR #5](https://github.com/peckjon/copilot-chat-to-markdown/pull/5)
 
 ## Contributing
 
